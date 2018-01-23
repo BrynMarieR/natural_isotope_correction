@@ -1,11 +1,11 @@
 # This script takes input of a CSV file with the following format:
 #
-# datafile   M+0    M+1    M+2 ...
-# sample1    38     395    NF
-# sample2    NF     403    200
+# datafile   chemformula     M+0    M+1    M+2 ...
+# sample1    C6H12O6         38     395    NF
+# sample2    C6H12O6         NF     403    200
 # ...
 #
-# and some arguments about the number of H, C, N, O atoms
+# and the type of atom that was labelled in the experiment (e.g., -L H)
 # 
 # and as output produces corrected isotope peak labels in a new csv file
 # with the same labelling as the original.
