@@ -46,7 +46,7 @@ opt = parse_args(opt_parser)
 ##
 
 input <- read.table(opt$input_file,header=T,sep=",",
-                    stringsAsFactors=F,row.names=1)
+                    stringsAsFactors=F)
 
 # sanitise by making all NF --> 0 then putting to numeric
 print("Treating all NF as 0...")
@@ -55,7 +55,7 @@ input[which(input == "NF",arr.ind=T)] <- 0
 # create output matrix with all -1s so it will be obvious
 # if something goes wrong
 output <- input
-output[,-c(1)] <- -1
+output[,-c(1,2)] <- -1
 
 isotope_data <- read.table("./isotope_data.csv",header=T,sep=",",
                            stringsAsFactors=F,row.names=1)
@@ -132,23 +132,23 @@ for(chem_formula in unique(input$formula)) {
   ### have master thing
   for(expt in rownames(input)) {
     if(input[expt,"formula"] == chem_formula) {
-      unpadded_x <- as.numeric(input[expt,2:ncol(input)])
+      unpadded_x <- as.numeric(input[expt,3:ncol(input)])
       solution <- nnls(masterCM, c(unpadded_x,rep(0, ncol(masterCM) - length(unpadded_x))))
-      output[expt,2:ncol(output)] <- solution$x[1:(ncol(output) - 1)]
+      output[expt,3:ncol(output)] <- solution$x[1:(ncol(output) - 2)]
     }
   }
   
 }
 
-output[,-1] <- round(output[,-1],0)
+output[,-c(1,2)] <- round(output[,-c(1,2)],0)
 if(is.null(opt$output_file)) {
   print(paste0("Writing to output file ","corrected_",opt$input_file))
   write.table(output, file=paste0("corrected_",opt$input_file),
-              sep=",",quote=F)
+              sep=",",quote=F,row.names=F)
 } else {
   print(paste0("Writing to output file ", opt$output_file))
   write.table(output, file=opt$output_file,
-              sep=",",quote=F)
+              sep=",",quote=F,row.names=F)
 }
 
 
