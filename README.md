@@ -8,8 +8,9 @@ Therefore, I've built this simple natural isotope abundance correction script. T
 
 The "samplefile.csv" shows an example input file. Input files should be given as such:
 
-name_of_expt . chem_formula . M+0 . M+1 . M+2 ...
-myexpt . C10H17N2O14P3 . NF . 305 . 281 ...
+name_of_expt | chem_formula | M+0 | M+1 | M+2 |
+-------------|--------------|-----|-----|-----|
+myexpt | C10H17N2O14P3 | NF | 305 | 281 |
 
 Peak intensities are given when they exist, and when the peak intensity is not found, the data point should be given as "NF". You can put multiple metabolites in an input file and adjust each one by the relative amounts of each element. The algorithm is "smart" and can read conventionally written chemical formulae. It is also unnecessary to have an "unlabelled" sample -- this simple script takes a purely analytical approach as given in "The importance of accurately correcting for the natural abundance of stable isotopes," (Midani, Wynn, Schnell, Analytical Biochemistry 2017, https://www.sciencedirect.com/science/article/pii/S0003269716304250), with some algorithmic approaches as in "Numerical bias estimation for mass spectrometric mass isotopomer analysis" (Yang,..., Heinzle, Analytical Biochemistry 2009, https://www.sciencedirect.com/science/article/pii/S0003269709001638)
 
