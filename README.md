@@ -2,7 +2,7 @@
 
 All atoms are made of electrons, protons, and neutrons. An atom's elemental identity is determined by the number of protons, but the number of neutrons can vary. The variance in neutron number causes a slight shift in mass which can be leveraged for diabolical, er, scientific purposes.
 
-For example, in nature, about 1% of all carbon is "heavy carbon", with 13 neutrons instead of 12 neutrons. So, we can say there is a certain "natural abundance" of 13-C. When we experimentally modify the number of "heavy" (labelled) atoms in a molecule, we have to take into account the natural abundance of atoms that will LOOK like we labelled them, but which actually are just heavy by chance.
+For example, in nature, about 1% of all carbon is "heavy carbon", with 7 neutrons instead of 6 neutrons. So, we can say there is a certain "natural abundance" of 13-C. When we experimentally modify the number of "heavy" (labelled) atoms in a molecule, we have to take into account the natural abundance of atoms that will LOOK like we labelled them, but which actually are just heavy by chance.
 
 Therefore, I've built this simple natural isotope abundance correction script. The script requires a file called "isotope_data.csv" to be in the same directory. The "isotope_data.csv" file should have information on the natural abundances of M+0, M+1, M+2, &c isotopes of each atom in the molecule under inquiry.
 
