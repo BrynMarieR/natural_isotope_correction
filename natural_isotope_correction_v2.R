@@ -37,7 +37,9 @@ option_list <- list (
               help="Atom type which has been labelled (e.g.: H, C)",
               metavar="character"),
   make_option(c("--output_file","-o"),type="character",default=NULL,
-              help="Desired name of output file",metavar="character")
+              help="Desired name of output file",metavar="character"),
+  make_option(c("--method","-m"),type="character",default="skewed",
+              help="Desired correction method (skewed, classical -- CLASSICAL NOT RECOMMENDED)")
 )
 
 opt_parser <- OptionParser(option_list=option_list)
@@ -45,8 +47,11 @@ opt = parse_args(opt_parser)
 
 ##
 
+method = opt$method
 input <- read.table(opt$input_file,header=T,sep=",",
                     stringsAsFactors=F)
+#barplot(as.matrix(input[,3:6]),beside=T)
+
 
 # sanitise by making all NF --> 0 then putting to numeric
 print("Treating all NF as 0...")
@@ -82,12 +87,12 @@ for(chem_formula in unique(input$formula)) {
   ## build correction matrices
   ## correction matrices for assumed monoisotopic elements are identity matrices
   ## and therefore do not need to be built
-  masterCM <- matrix(rep(0, (atom_list[opt$Label]+1 )**2),nrow=atom_list[opt$Label]+1)
+  masterCM <- diag(atom_list[opt$Label]+1)
   non_labelled_isos <- atom_list[-which(names(atom_list) == opt$Label)]
   
   ## build rho with a series of convolutions
-  rho = 1
   for(atom_type in names(non_labelled_isos)) {
+    rho = 1
     a_atom <- isotope_data[atom_type,]
     if(any(a_atom == 0)) {
       a_atom <- as.numeric(a_atom[-which(a_atom == 0)])
@@ -97,33 +102,55 @@ for(chem_formula in unique(input$formula)) {
     for(b in 1:non_labelled_isos[atom_type]) {
       rho = convolve(rho, rev(a_atom),type="o")
     }
-  }
-  # any rho < 0 is an underflow error
-  if(any(rho < 0)) {
-    rho[which(rho < 0)] = 0
-  }
-  
-  # the correction matrix just uses elements of rho to fill the columns
-  for(col in 1:(atom_list[opt$Label]+1)) {
-    masterCM[col:ncol(masterCM),col] <- rho[1:(ncol(masterCM)-col+1)]
+    # any rho < 0 is an underflow error
+    if(any(rho < 0)) {
+      rho[which(rho < 0)] = 0
+    }
+    local_cm <- diag(atom_list[opt$Label] + 1)
+    for(col in 1:(atom_list[opt$Label] + 1)) {
+      local_cm[col:ncol(local_cm), col] <- rho[1:(ncol(local_cm) - col + 1)]
+    }
+    masterCM <- masterCM %*% local_cm
   }
   
   # generate the labelled matrix, then multiply by the masterCM
   # to get the final master CM which we can then solve by nnls
   labelled_cm <- matrix(rep(0, (atom_list[opt$Label]+1 )**2),nrow=atom_list[opt$Label]+1)
   labelled_a <- isotope_data[opt$Label,]
+  
   if(any(labelled_a == 0)) {
     labelled_a <- as.numeric(labelled_a[-which(labelled_a == 0)])
   } else {
     labelled_a <- as.numeric(labelled_a)
   }
-  start_populating = 1
-  for(n in 0:(ncol(labelled_cm)-1)) {
-    N = atom_list[opt$Label]
-    for(i in 0:(N - n)) {
-      labelled_cm[i+start_populating,n+1] <- choose(N-n, i)*(labelled_a[1]**(N-n-i))*(labelled_a[2]**(i))
+  
+  if(method=="skewed") {
+
+    start_populating = 1
+    for(n in 0:(ncol(labelled_cm)-1)) {
+      N = atom_list[opt$Label]
+      for(i in 0:(N - n)) {
+        labelled_cm[i+start_populating,n+1] <- choose(N-n, i)*(labelled_a[1]**(N-n-i))*(labelled_a[2]**(i))
+      }
+      start_populating = start_populating + 1
     }
-    start_populating = start_populating + 1
+  } else if (method == "classical") {
+    ## build rho with a series of convolutions
+    rho = 1
+
+    for(b in 1:atom_list[opt$Label]) {
+      rho = convolve(rho, rev(labelled_a), type="o")
+    }
+    
+    # any rho < 0 is an underflow error
+    if(any(rho < 0)) {
+      rho[which(rho < 0)] = 0
+    }
+    
+    # the correction matrix just uses elements of rho to fill the columns
+    for(col in 1:(atom_list[opt$Label]+1)) {
+      labelled_cm[col:ncol(labelled_cm),col] <- rho[1:(ncol(labelled_cm)-col+1)]
+    }    
   }
   
   masterCM <- masterCM %*% labelled_cm
@@ -134,13 +161,14 @@ for(chem_formula in unique(input$formula)) {
     if(input[expt,"formula"] == chem_formula) {
       unpadded_x <- as.numeric(input[expt,3:ncol(input)])
       solution <- nnls(masterCM, c(unpadded_x,rep(0, ncol(masterCM) - length(unpadded_x))))
-      output[expt,3:ncol(output)] <- solution$x[1:(ncol(output) - 2)]
+      # set output after normalising to make the M+0 peak 1
+      output[expt,3:ncol(output)] <- solution$x[1:(ncol(output) - 2)] / solution$x[1]
     }
   }
   
 }
 
-output[,-c(1,2)] <- round(output[,-c(1,2)],0)
+output[,-c(1,2)] <- round(output[,-c(1,2)],3)
 if(is.null(opt$output_file)) {
   print(paste0("Writing to output file ","corrected_",opt$input_file))
   write.table(output, file=paste0("corrected_",opt$input_file),
