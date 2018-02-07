@@ -11,7 +11,7 @@
 # with the same labelling as the original.
 #
 # This program makes some assumptions. Mono-isotopic phosphorus,
-# complete isotopic purity of the labelling reagent, and others.
+# and others
 #
 # Largely, this paper was used:
 # https://www.sciencedirect.com/science/article/pii/S0003269716304250
@@ -28,6 +28,14 @@ if(!require("optparse",character.only=T, quietly=T)) {
   install.packages("optparse")
   library("optparse", character.only=T)
 }
+if(!require("gtools",character.only = T,quietly=T)) {
+  install.packages("gtools")
+  library(gtools,character.only=T)
+}
+if(!require("plyr",character.only = T,quietly=T)) {
+  install.packages("plyr")
+  library(plyr,character.only=T)
+}
 
 option_list <- list (
   make_option(c("--input_file","-i"), type="character",default=NULL,
@@ -39,7 +47,9 @@ option_list <- list (
   make_option(c("--output_file","-o"),type="character",default=NULL,
               help="Desired name of output file",metavar="character"),
   make_option(c("--method","-m"),type="character",default="skewed",
-              help="Desired correction method (skewed, classical -- CLASSICAL NOT RECOMMENDED)")
+              help="Desired correction method (skewed, classical -- CLASSICAL NOT RECOMMENDED)"),
+  make_option(c("--purity","-p"),type="double",default=1.00,
+              help="Tracer purity, which should be <= 1.00")
 )
 
 opt_parser <- OptionParser(option_list=option_list)
@@ -48,6 +58,7 @@ opt = parse_args(opt_parser)
 ##
 
 method = opt$method
+purity = as.numeric(opt$purity)
 input <- read.table(opt$input_file,header=T,sep=",",
                     stringsAsFactors=F)
 #barplot(as.matrix(input[,3:6]),beside=T)
@@ -118,19 +129,44 @@ for(chem_formula in unique(input$formula)) {
   labelled_cm <- matrix(rep(0, (atom_list[opt$Label]+1 )**2),nrow=atom_list[opt$Label]+1)
   labelled_a <- isotope_data[opt$Label,]
   
-  if(any(labelled_a == 0)) {
-    labelled_a <- as.numeric(labelled_a[-which(labelled_a == 0)])
-  } else {
-    labelled_a <- as.numeric(labelled_a)
-  }
-  
   if(method=="skewed") {
 
     start_populating = 1
-    for(n in 0:(ncol(labelled_cm)-1)) {
-      N = atom_list[opt$Label]
-      for(i in 0:(N - n)) {
-        labelled_cm[i+start_populating,n+1] <- choose(N-n, i)*(labelled_a[1]**(N-n-i))*(labelled_a[2]**(i))
+    possible_isotopes = seq(0, ncol(isotope_data) - 1)
+    for(n_from_labelled in 0:(ncol(labelled_cm)-1)) {
+      N_atoms = atom_list[opt$Label]
+      
+      for(i in 0:(N_atoms - n_from_labelled)) {
+        if(N_atoms != n_from_labelled) {
+          result <- combinations(n=ncol(isotope_data), 
+                                 r=(N_atoms - n_from_labelled), v=seq(0,N_atoms), repeats.allowed=T)
+          result <- result[which(apply(result, 1, sum) == i),]
+          if(!is.vector(result)) {
+            probability <- sum(apply(result, 1, function(x) {
+              tmp <- count(x)
+              if(nrow(tmp) < length(possible_isotopes)) {
+                missing <- data.frame(cbind(possible_isotopes[-which(possible_isotopes %in% tmp$x)], c(0)))
+                colnames(missing) <- c("x","freq")
+                tmp <- rbind(tmp, missing)
+              }
+              sorted.tmp <- tmp[order(tmp$x),] 
+              dmultinom(x=sorted.tmp[,"freq"], prob=as.matrix(isotope_data[opt$Label,]))
+            }))
+          } else {
+            tmp <- count(result)
+            if(nrow(tmp) < length(possible_isotopes)) {
+              missing <- data.frame(cbind(possible_isotopes[-which(possible_isotopes %in% tmp$x)], c(0)))
+              colnames(missing) <- c("x","freq")
+              tmp <- rbind(tmp, missing)
+            }
+            sorted.tmp <- tmp[order(tmp$x),] 
+            probability <- dmultinom(x=sorted.tmp[,"freq"], prob=as.matrix(isotope_data[opt$Label,]))
+          }
+        } else {
+          probability = 1
+        }
+
+        labelled_cm[i+start_populating,n_from_labelled+1] <- probability
       }
       start_populating = start_populating + 1
     }
@@ -139,18 +175,27 @@ for(chem_formula in unique(input$formula)) {
     rho = 1
 
     for(b in 1:atom_list[opt$Label]) {
-      rho = convolve(rho, rev(labelled_a), type="o")
+      rho = convolve(rho, rev(as.matrix(labelled_a)), type="o")
     }
-    
-    # any rho < 0 is an underflow error
-    if(any(rho < 0)) {
-      rho[which(rho < 0)] = 0
+
+    # any rho < 1e-15 is an underflow error
+    if(any(rho < 1e-15)) {
+      rho[which(rho < 1e-15)] = 0
     }
     
     # the correction matrix just uses elements of rho to fill the columns
     for(col in 1:(atom_list[opt$Label]+1)) {
       labelled_cm[col:ncol(labelled_cm),col] <- rho[1:(ncol(labelled_cm)-col+1)]
     }    
+  }
+  
+  # correct for purity of the tracer
+  for(col in 2:(atom_list[opt$Label] + 1)) {
+    tmp_rho <- labelled_cm[col:ncol(labelled_cm),col]
+    for (convolve_timer in 1:(col-1)) {
+      tmp_rho <- convolve(tmp_rho, rev(c(1-purity, purity)),type="o")
+    }
+    labelled_cm[1:ncol(labelled_cm),col] <- tmp_rho[1:ncol(labelled_cm)]
   }
   
   masterCM <- masterCM %*% labelled_cm
@@ -178,5 +223,7 @@ if(is.null(opt$output_file)) {
   write.table(output, file=opt$output_file,
               sep=",",quote=F,row.names=F)
 }
+
+
 
 
