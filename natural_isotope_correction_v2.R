@@ -118,6 +118,9 @@ for(chem_formula in unique(input$formula)) {
       rho[which(rho < 0)] = 0
     }
     local_cm <- diag(atom_list[opt$Label] + 1)
+    if(length(rho) < ncol(local_cm)) { # pad with zeros
+      rho <- c(rho, rep(0, (ncol(local_cm) - length(rho))))  
+    }
     for(col in 1:(atom_list[opt$Label] + 1)) {
       local_cm[col:ncol(local_cm), col] <- rho[1:(ncol(local_cm) - col + 1)]
     }
