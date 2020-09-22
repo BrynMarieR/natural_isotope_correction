@@ -1,6 +1,6 @@
 # Natural isotope correction
 
-All atoms are made of electrons, protons, and neutrons. An atom's elemental identity is determined by the number of protons, but the number of neutrons can vary. The variance in neutron number causes a slight shift in mass which can be leveraged for diabolical, er, scientific purposes.
+All atoms are made of electrons, protons, and neutrons. An atom's elemental identity is determined by the number of protons, but the number of neutrons can vary. The variance in neutron number causes a slight shift in mass which can be leveraged for scientific purposes.
 
 For example, in nature, about 1% of all carbon is "heavy carbon", with 7 neutrons instead of 6 neutrons. So, we can say there is a certain "natural abundance" of 13-C. When we experimentally modify the number of "heavy" (labelled) atoms in a molecule, we have to take into account the natural abundance of atoms that will LOOK like we labelled them, but which actually are just heavy by chance.
 
